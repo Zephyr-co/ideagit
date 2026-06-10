@@ -1,0 +1,31 @@
+# Progress Log
+
+## 2026-06-10
+- Started implementation from `ideagit-requirements.md` under the active `/goal`.
+- Spawned two parallel review agents:
+  - Requirements/P0 coverage and VS Code extension structure review.
+  - Git CLI safety, dangerous-operation, changelist, and acceptance-test review.
+- Created a VS Code extension scaffold with manifest contributions for Activity Bar views, commands, menus, keybindings, settings, launch config, tasks, README, and icon.
+- Added core implementation files:
+  - Git CLI, repository, status, changelist, commit, push, branch, log, sync, conflict, stash, and risk-confirmation services.
+  - Tree views for repositories, local changes, branches, log, sync, conflicts, and stash.
+  - Webviews for Commit and Push Preview.
+  - Command registry and activation wiring.
+- Installed npm dependencies.
+- Ran `npm run compile`; first pass found TypeScript errors in node context values and reset-mode selection, then fixes were applied.
+- Reworked changelist commit behavior to use a temporary Git index and restore selected working-tree paths from `HEAD`, preserving unrelated uncommitted files and avoiding direct UI shell calls.
+- Ran a Git CLI smoke test for the temp-index strategy: committed only `a.txt` and left `b.txt` uncommitted.
+- Ran `npm run compile` and `npm run check` successfully.
+- Verified command coverage: 46 contributed commands and 46 registered commands, with no missing or extra commands.
+- Verified source/resource/config files are ASCII and no direct `exec`, `execFile`, or `shell: true` usage exists.
+- Fixed Windows diff opening for packaged extension version 0.1.2:
+  - Replaced invalid `git:${fileUri.fsPath}?HEAD` URI construction with a VS Code Git-compatible URI using `uri.with({ scheme: 'git', query: JSON.stringify({ path, ref }) })`.
+  - Ran `npm run compile`, packaged `ideagit-0.1.2.vsix`, installed it with VS Code CLI, and verified `ideagit.ideagit@0.1.2` is installed.
+- Started a Local Changes visual distinction pass:
+  - Active changelist rows now sort above inactive rows and show an uppercase `ACTIVE` description.
+  - Inactive changelist rows now explicitly show `inactive`, use a muted icon color, and have tooltip/accessibility text identifying their state.
+  - `ChangelistService.setActive` now updates each list's `active` flag immediately before persistence.
+- Packaging was stopped at user request; kept the version at 0.1.3 and retained only the source-level UI/status changes.
+- Added stronger changelist visual markers without packaging:
+  - Active changelist labels now render as `● Name`, use a filled-circle icon, and highlight the name text.
+  - Inactive changelist labels now render as `○ Name` with an outline-circle icon.

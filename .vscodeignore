@@ -1,0 +1,9 @@
+.vscode/**
+src/**
+**/*.map
+node_modules/**
+task_plan.md
+findings.md
+progress.md
+ideagit-requirements.md
+tsconfig.json

@@ -1,0 +1,594 @@
+{
+  "name": "ideagit",
+  "displayName": "ideagit",
+  "description": "IntelliJ IDEA inspired Git workflow for VS Code: changelists, commit flow, push preview, branches, log, stash, and conflicts.",
+  "version": "0.1.5",
+  "publisher": "ideagit",
+  "icon": "resources/ideagit.png",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:ideagit.repositories",
+    "onView:ideagit.localChanges",
+    "onView:ideagit.branches",
+    "onView:ideagit.log",
+    "onView:ideagit.sync",
+    "onView:ideagit.stash",
+    "onView:ideagit.conflicts",
+    "onCommand:ideagit.showLocalChanges",
+    "onCommand:ideagit.showLog",
+    "onCommand:ideagit.commit",
+    "onCommand:ideagit.push"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile",
+    "check": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "@types/vscode": "^1.94.0",
+    "typescript": "^5.8.3"
+  },
+  "contributes": {
+    "configuration": {
+      "title": "ideagit",
+      "properties": {
+        "ideagit.gitPath": {
+          "type": "string",
+          "default": "git",
+          "description": "Git executable path used by ideagit."
+        },
+        "ideagit.pullStrategy": {
+          "type": "string",
+          "default": "merge",
+          "enum": [
+            "merge",
+            "rebase",
+            "ff-only"
+          ],
+          "description": "Default pull strategy."
+        },
+        "ideagit.logPageSize": {
+          "type": "number",
+          "default": 80,
+          "minimum": 20,
+          "maximum": 500,
+          "description": "Number of commits loaded in the Log view."
+        },
+        "ideagit.statusRefreshDebounceMs": {
+          "type": "number",
+          "default": 650,
+          "minimum": 100,
+          "maximum": 5000,
+          "description": "Debounce delay before refreshing Git status after file changes."
+        },
+        "ideagit.confirmBareForcePush": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allow bare --force push after an additional explicit confirmation. Force-with-lease is used by default."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ideagit",
+          "title": "ideagit",
+          "icon": "resources/ideagit.svg"
+        }
+      ]
+    },
+    "views": {
+      "ideagit": [
+        {
+          "id": "ideagit.localChanges",
+          "name": "Local Changes"
+        },
+        {
+          "type": "webview",
+          "id": "ideagit.commitView",
+          "name": "Commit"
+        },
+        {
+          "id": "ideagit.repositories",
+          "name": "Repositories",
+          "visibility": "hidden"
+        },
+        {
+          "id": "ideagit.sync",
+          "name": "Sync",
+          "visibility": "hidden"
+        },
+        {
+          "type": "webview",
+          "id": "ideagit.pushPreview",
+          "name": "Push Preview",
+          "visibility": "hidden"
+        },
+        {
+          "id": "ideagit.branches",
+          "name": "Branches",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "ideagit.log",
+          "name": "Log",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "ideagit.conflicts",
+          "name": "Conflicts",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "ideagit.stash",
+          "name": "Stash",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "ideagit.refresh",
+        "title": "ideagit: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ideagit.addRepository",
+        "title": "ideagit: Add Existing Repository"
+      },
+      {
+        "command": "ideagit.initRepository",
+        "title": "ideagit: Init Repository"
+      },
+      {
+        "command": "ideagit.cloneRepository",
+        "title": "ideagit: Clone Repository"
+      },
+      {
+        "command": "ideagit.selectRepository",
+        "title": "ideagit: Select Repository"
+      },
+      {
+        "command": "ideagit.showLocalChanges",
+        "title": "ideagit: Show Local Changes"
+      },
+      {
+        "command": "ideagit.showLog",
+        "title": "ideagit: Show Git Log"
+      },
+      {
+        "command": "ideagit.showCommitDetails",
+        "title": "ideagit: Show Commit Details"
+      },
+      {
+        "command": "ideagit.commit",
+        "title": "ideagit: Commit",
+        "icon": "$(check)"
+      },
+      {
+        "command": "ideagit.commitAndPush",
+        "title": "ideagit: Commit and Push",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "ideagit.commitFromWebview",
+        "title": "ideagit: Commit from Commit View"
+      },
+      {
+        "command": "ideagit.commitAndPushFromWebview",
+        "title": "ideagit: Commit and Push from Commit View"
+      },
+      {
+        "command": "ideagit.push",
+        "title": "ideagit: Push",
+        "icon": "$(repo-push)"
+      },
+      {
+        "command": "ideagit.forcePushWithLease",
+        "title": "ideagit: Force Push With Lease"
+      },
+      {
+        "command": "ideagit.pushFromWebview",
+        "title": "ideagit: Push from Push Preview"
+      },
+      {
+        "command": "ideagit.forcePushFromWebview",
+        "title": "ideagit: Force Push from Push Preview"
+      },
+      {
+        "command": "ideagit.pull",
+        "title": "ideagit: Pull",
+        "icon": "$(repo-pull)"
+      },
+      {
+        "command": "ideagit.pullRebase",
+        "title": "ideagit: Pull --rebase",
+        "icon": "$(repo-pull)"
+      },
+      {
+        "command": "ideagit.fetch",
+        "title": "ideagit: Fetch",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "ideagit.updateProject",
+        "title": "ideagit: Update Project"
+      },
+      {
+        "command": "ideagit.createChangelist",
+        "title": "ideagit: Create Changelist",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ideagit.renameChangelist",
+        "title": "ideagit: Rename Changelist"
+      },
+      {
+        "command": "ideagit.deleteChangelist",
+        "title": "ideagit: Delete Changelist"
+      },
+      {
+        "command": "ideagit.setActiveChangelist",
+        "title": "ideagit: Set Active Changelist"
+      },
+      {
+        "command": "ideagit.moveToChangelist",
+        "title": "ideagit: Move to Changelist"
+      },
+      {
+        "command": "ideagit.toggleIncluded",
+        "title": "ideagit: Include/Exclude from Commit"
+      },
+      {
+        "command": "ideagit.showDiff",
+        "title": "ideagit: Show Diff"
+      },
+      {
+        "command": "ideagit.openFile",
+        "title": "ideagit: Open File"
+      },
+      {
+        "command": "ideagit.revealFile",
+        "title": "ideagit: Reveal in Explorer"
+      },
+      {
+        "command": "ideagit.rollback",
+        "title": "ideagit: Restore"
+      },
+      {
+        "command": "ideagit.checkoutBranch",
+        "title": "ideagit: Checkout Branch"
+      },
+      {
+        "command": "ideagit.createBranch",
+        "title": "ideagit: Create Branch",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ideagit.deleteBranch",
+        "title": "ideagit: Delete Branch"
+      },
+      {
+        "command": "ideagit.compareBranch",
+        "title": "ideagit: Compare with Current"
+      },
+      {
+        "command": "ideagit.merge",
+        "title": "ideagit: Merge"
+      },
+      {
+        "command": "ideagit.rebase",
+        "title": "ideagit: Rebase"
+      },
+      {
+        "command": "ideagit.cherryPick",
+        "title": "ideagit: Cherry-pick"
+      },
+      {
+        "command": "ideagit.revertCommit",
+        "title": "ideagit: Revert Commit"
+      },
+      {
+        "command": "ideagit.resetToCommit",
+        "title": "ideagit: Reset Current Branch to Here"
+      },
+      {
+        "command": "ideagit.copyHash",
+        "title": "ideagit: Copy Hash"
+      },
+      {
+        "command": "ideagit.stash",
+        "title": "ideagit: Stash Changes"
+      },
+      {
+        "command": "ideagit.stashPopLatest",
+        "title": "ideagit: Stash Pop"
+      },
+      {
+        "command": "ideagit.applyStash",
+        "title": "ideagit: Apply Stash"
+      },
+      {
+        "command": "ideagit.popStash",
+        "title": "ideagit: Pop Stash"
+      },
+      {
+        "command": "ideagit.dropStash",
+        "title": "ideagit: Drop Stash"
+      },
+      {
+        "command": "ideagit.resolveConflicts",
+        "title": "ideagit: Resolve Conflicts"
+      },
+      {
+        "command": "ideagit.markResolved",
+        "title": "ideagit: Mark as Resolved"
+      },
+      {
+        "command": "ideagit.abortOperation",
+        "title": "ideagit: Abort Git Operation"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "ideagit.refresh",
+          "when": "view =~ /^ideagit\\./",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ideagit.addRepository",
+          "when": "view == ideagit.repositories",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ideagit.initRepository",
+          "when": "view == ideagit.repositories",
+          "group": "navigation@3"
+        },
+        {
+          "command": "ideagit.cloneRepository",
+          "when": "view == ideagit.repositories",
+          "group": "navigation@4"
+        },
+        {
+          "command": "ideagit.commit",
+          "when": "view == ideagit.localChanges || view == ideagit.commitView",
+          "group": "navigation@5"
+        },
+        {
+          "command": "ideagit.push",
+          "when": "view == ideagit.sync || view == ideagit.pushPreview",
+          "group": "navigation@6"
+        },
+        {
+          "command": "ideagit.createChangelist",
+          "when": "view == ideagit.localChanges",
+          "group": "navigation@7"
+        },
+        {
+          "command": "ideagit.createBranch",
+          "when": "view == ideagit.branches",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ideagit.abortOperation",
+          "when": "view == ideagit.conflicts",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ideagit.selectRepository",
+          "when": "view == ideagit.repositories && viewItem == repository",
+          "group": "inline@1"
+        },
+        {
+          "command": "ideagit.showDiff",
+          "when": "view == ideagit.localChanges && viewItem =~ /change/",
+          "group": "inline@1"
+        },
+        {
+          "command": "ideagit.openFile",
+          "when": "view == ideagit.localChanges && viewItem =~ /change/",
+          "group": "inline@2"
+        },
+        {
+          "command": "ideagit.rollback",
+          "when": "view == ideagit.localChanges && viewItem =~ /change/",
+          "group": "changes@3"
+        },
+        {
+          "command": "ideagit.moveToChangelist",
+          "when": "view == ideagit.localChanges && viewItem =~ /change/",
+          "group": "changes@1"
+        },
+        {
+          "command": "ideagit.toggleIncluded",
+          "when": "view == ideagit.localChanges && viewItem =~ /change/",
+          "group": "changes@2"
+        },
+        {
+          "command": "ideagit.renameChangelist",
+          "when": "view == ideagit.localChanges && viewItem == changelist",
+          "group": "changelist@1"
+        },
+        {
+          "command": "ideagit.setActiveChangelist",
+          "when": "view == ideagit.localChanges && viewItem == changelist",
+          "group": "changelist@2"
+        },
+        {
+          "command": "ideagit.deleteChangelist",
+          "when": "view == ideagit.localChanges && viewItem == changelist",
+          "group": "changelist@3"
+        },
+        {
+          "command": "ideagit.checkoutBranch",
+          "when": "view == ideagit.branches && viewItem =~ /branch(Local|Remote)/",
+          "group": "inline@1"
+        },
+        {
+          "command": "ideagit.merge",
+          "when": "view == ideagit.branches && viewItem =~ /branch(Local|Remote)/",
+          "group": "inline@2"
+        },
+        {
+          "command": "ideagit.createBranch",
+          "when": "view == ideagit.branches && viewItem == branchGroupLocal",
+          "group": "inline@1"
+        },
+        {
+          "command": "ideagit.deleteBranch",
+          "when": "view == ideagit.branches && viewItem =~ /branchLocal/",
+          "group": "branch@5"
+        },
+        {
+          "command": "ideagit.cherryPick",
+          "when": "view == ideagit.log && viewItem == commit",
+          "group": "commit@1"
+        },
+        {
+          "command": "ideagit.revertCommit",
+          "when": "view == ideagit.log && viewItem == commit",
+          "group": "commit@2"
+        },
+        {
+          "command": "ideagit.resetToCommit",
+          "when": "view == ideagit.log && viewItem == commit",
+          "group": "commit@3"
+        },
+        {
+          "command": "ideagit.copyHash",
+          "when": "view == ideagit.log && viewItem == commit",
+          "group": "commit@4"
+        },
+        {
+          "command": "ideagit.applyStash",
+          "when": "view == ideagit.stash && viewItem == stash",
+          "group": "stash@1"
+        },
+        {
+          "command": "ideagit.popStash",
+          "when": "view == ideagit.stash && viewItem == stash",
+          "group": "stash@2"
+        },
+        {
+          "command": "ideagit.dropStash",
+          "when": "view == ideagit.stash && viewItem == stash",
+          "group": "stash@3"
+        },
+        {
+          "command": "ideagit.resolveConflicts",
+          "when": "view == ideagit.conflicts && viewItem == conflict",
+          "group": "inline@1"
+        },
+        {
+          "command": "ideagit.markResolved",
+          "when": "view == ideagit.conflicts && viewItem == conflict",
+          "group": "inline@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "ideagit.refresh"
+        },
+        {
+          "command": "ideagit.showLocalChanges"
+        },
+        {
+          "command": "ideagit.showLog"
+        },
+        {
+          "command": "ideagit.commit"
+        },
+        {
+          "command": "ideagit.commitAndPush"
+        },
+        {
+          "command": "ideagit.push"
+        },
+        {
+          "command": "ideagit.pull"
+        },
+        {
+          "command": "ideagit.pullRebase"
+        },
+        {
+          "command": "ideagit.fetch"
+        },
+        {
+          "command": "ideagit.updateProject"
+        },
+        {
+          "command": "ideagit.createChangelist"
+        },
+        {
+          "command": "ideagit.checkoutBranch"
+        },
+        {
+          "command": "ideagit.createBranch"
+        },
+        {
+          "command": "ideagit.merge"
+        },
+        {
+          "command": "ideagit.rebase"
+        },
+        {
+          "command": "ideagit.cherryPick"
+        },
+        {
+          "command": "ideagit.stash"
+        },
+        {
+          "command": "ideagit.stashPopLatest"
+        },
+        {
+          "command": "ideagit.resolveConflicts"
+        },
+        {
+          "command": "ideagit.commitFromWebview",
+          "when": "false"
+        },
+        {
+          "command": "ideagit.commitAndPushFromWebview",
+          "when": "false"
+        },
+        {
+          "command": "ideagit.pushFromWebview",
+          "when": "false"
+        },
+        {
+          "command": "ideagit.forcePushFromWebview",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "ideagit.commit",
+        "key": "ctrl+alt+k",
+        "mac": "cmd+alt+k",
+        "when": "workspaceFolderCount > 0"
+      },
+      {
+        "command": "ideagit.showLog",
+        "key": "ctrl+alt+g",
+        "mac": "cmd+alt+g",
+        "when": "workspaceFolderCount > 0"
+      }
+    ]
+  }
+}
