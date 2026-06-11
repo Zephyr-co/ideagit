@@ -455,6 +455,11 @@
           "group": "branch@5"
         },
         {
+          "command": "ideagit.showCommitDetails",
+          "when": "view == ideagit.log && viewItem == commit",
+          "group": "commit@0"
+        },
+        {
           "command": "ideagit.cherryPick",
           "when": "view == ideagit.log && viewItem == commit",
           "group": "commit@1"

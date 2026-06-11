@@ -24,6 +24,8 @@ import { StashView } from './ui/stashView';
 import { CommitWebviewProvider } from './ui/commitWebview';
 import { PushPreviewWebviewProvider } from './ui/pushPreviewWebview';
 import { CommandRegistry } from './commands/commandRegistry';
+import { CommitFileNode, CommitNode } from './ui/nodes';
+import { fromGitPath } from './utils/pathUtils';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const output = new Output();
@@ -54,7 +56,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     treeDataProvider: localChangesView,
     manageCheckboxStateManually: true
   });
+  const logTree = vscode.window.createTreeView('ideagit.log', {
+    treeDataProvider: logView
+  });
+  logView.bindTreeView(logTree);
   context.subscriptions.push(localChangesTree.onDidChangeCheckboxState(event => void localChangesView.updateIncludedFromCheckbox(event.items)));
+  context.subscriptions.push(logTree.onDidChangeSelection(event => {
+    const commit = event.selection.find((item): item is CommitNode => item instanceof CommitNode);
+    if (commit) {
+      void logView.expandCommit(commit);
+    }
+  }));
 
   const refreshAll = async () => {
     await repositories.refresh();
@@ -77,12 +89,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerTreeDataProvider('ideagit.repositories', repositoriesView),
     localChangesTree,
     vscode.window.registerTreeDataProvider('ideagit.branches', branchesView),
-    vscode.window.registerTreeDataProvider('ideagit.log', logView),
+    logTree,
     vscode.window.registerTreeDataProvider('ideagit.sync', syncView),
     vscode.window.registerTreeDataProvider('ideagit.conflicts', conflictsView),
     vscode.window.registerTreeDataProvider('ideagit.stash', stashView),
     vscode.window.registerWebviewViewProvider('ideagit.commitView', commitWebview),
-    vscode.window.registerWebviewViewProvider('ideagit.pushPreview', pushPreview)
+    vscode.window.registerWebviewViewProvider('ideagit.pushPreview', pushPreview),
+    vscode.commands.registerCommand('ideagit.expandCommitFiles', (node?: unknown) => {
+      if (node instanceof CommitNode) {
+        void logView.expandCommit(node, { focus: true, select: true });
+      }
+    }),
+    vscode.commands.registerCommand('ideagit.showCommitFileDiff', (node?: unknown) => {
+      if (node instanceof CommitFileNode) {
+        const fileUri = vscode.Uri.file(fromGitPath(node.repositoryRoot, node.filePath));
+        const before = toGitUri(fileUri, `${node.commit.hash}^`);
+        const after = toGitUri(fileUri, node.commit.hash);
+        void vscode.commands.executeCommand(
+          'vscode.diff',
+          before,
+          after,
+          `${node.filePath} (${node.commit.shortHash})`
+        );
+      }
+    })
   );
 
   new CommandRegistry({
@@ -128,4 +158,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 export function deactivate(): void {
   // VS Code disposes registered subscriptions.
+}
+
+function toGitUri(uri: vscode.Uri, ref: string): vscode.Uri {
+  return uri.with({
+    scheme: 'git',
+    path: uri.path,
+    query: JSON.stringify({ path: uri.fsPath, ref })
+  });
 }

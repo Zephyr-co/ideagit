@@ -22,6 +22,8 @@ export type NodeKind =
   | 'branchLocal'
   | 'branchRemote'
   | 'commit'
+  | 'commitDirectory'
+  | 'commitFile'
   | 'syncAction'
   | 'stash'
   | 'conflict'
@@ -178,13 +180,45 @@ export class BranchNode extends IdeaGitNode {
 
 export class CommitNode extends IdeaGitNode {
   constructor(readonly commit: CommitInfo) {
-    super(commit.subject || commit.shortHash, vscode.TreeItemCollapsibleState.None, 'commit', commit);
+    super(commit.subject || commit.shortHash, vscode.TreeItemCollapsibleState.Collapsed, 'commit', commit);
+    this.id = `commit:${commit.hash}`;
     this.description = `${commit.shortHash} - ${commit.author} - ${commit.date}`;
-    this.tooltip = `${commit.hash}\n${commit.refs ?? ''}\n${commit.subject}`;
+    this.tooltip = `${commit.hash}\n${commit.refs ?? ''}\n${commit.subject}\n\nClick to show committed files.`;
     this.iconPath = new vscode.ThemeIcon('git-commit');
     this.command = {
-      command: 'ideagit.showCommitDetails',
-      title: 'Show Commit Details',
+      command: 'ideagit.expandCommitFiles',
+      title: 'Show Committed Files',
+      arguments: [this]
+    };
+  }
+}
+
+export class CommitDirectoryNode extends IdeaGitNode {
+  constructor(
+    readonly repositoryRoot: string,
+    readonly commit: CommitInfo,
+    label: string,
+    readonly pathPrefix: string,
+    readonly files: string[]
+  ) {
+    super(label, vscode.TreeItemCollapsibleState.Collapsed, 'commitDirectory', { repositoryRoot, commit, pathPrefix, files }, 'commitDirectory');
+    this.id = `commit:${commit.hash}:dir:${pathPrefix}`;
+    this.description = countLabel(files.length);
+    this.tooltip = pathPrefix;
+    this.iconPath = new vscode.ThemeIcon('folder');
+  }
+}
+
+export class CommitFileNode extends IdeaGitNode {
+  constructor(readonly repositoryRoot: string, readonly commit: CommitInfo, readonly filePath: string, label = filePath) {
+    super(label, vscode.TreeItemCollapsibleState.None, 'commitFile', { repositoryRoot, commit, path: filePath }, 'commitFile');
+    this.id = `commit:${commit.hash}:file:${filePath}`;
+    this.resourceUri = vscode.Uri.file(fromGitPath(repositoryRoot, filePath));
+    this.tooltip = filePath;
+    this.iconPath = vscode.ThemeIcon.File;
+    this.command = {
+      command: 'ideagit.showCommitFileDiff',
+      title: 'Show Commit File Diff',
       arguments: [this]
     };
   }
