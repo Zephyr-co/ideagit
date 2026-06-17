@@ -86,18 +86,30 @@ export class LocalChangesView implements vscode.TreeDataProvider<IdeaGitNode> {
     if (!element) {
       const state = this.changelists.getState(repository.rootPath);
       const versioned = this.versionedChanges();
+      const conflicted = this.conflictedChanges();
+      const nonConflictedVersioned = versioned.filter(change => !change.conflicted);
       const nodes: IdeaGitNode[] = [...state.changelists]
         .sort(compareChangelists)
         .map(changelist => {
-          const changes = versioned.filter(
+          const changes = nonConflictedVersioned.filter(
             change => this.changelists.getChangelistForChange(repository.rootPath, change).id === changelist.id
           );
-          if (!changes.length && changelist.id === 'default' && (!changelist.active || versioned.length === 0)) {
+          if (!changes.length && changelist.id === 'default' && (!changelist.active || nonConflictedVersioned.length === 0)) {
             return undefined;
           }
           return new ChangelistNode(changelist, changes.length, changes, this.checkboxStateForChanges(changes));
         })
         .filter((node): node is ChangelistNode => Boolean(node));
+
+      if (conflicted.length) {
+        nodes.unshift(new ChangeGroupNode(
+          'Conflicts',
+          conflicted,
+          this.checkboxStateForChanges(conflicted),
+          vscode.TreeItemCollapsibleState.Expanded,
+          'conflictGroup'
+        ));
+      }
 
       const unversioned = this.unversionedChanges();
       if (unversioned.length) {
@@ -159,6 +171,10 @@ export class LocalChangesView implements vscode.TreeDataProvider<IdeaGitNode> {
 
   private versionedChanges(): GitChange[] {
     return this.changes.filter(change => !change.untracked && !change.ignored);
+  }
+
+  private conflictedChanges(): GitChange[] {
+    return this.changes.filter(change => change.conflicted && !change.ignored);
   }
 
   private unversionedChanges(): GitChange[] {

@@ -108,11 +108,26 @@ export class ChangeGroupNode extends IdeaGitNode {
     label: string,
     readonly changes: GitChange[],
     checkboxState?: ChangeCheckboxState,
-    collapsibleState = vscode.TreeItemCollapsibleState.Expanded
+    collapsibleState = vscode.TreeItemCollapsibleState.Expanded,
+    contextValue = 'group'
   ) {
-    super(label, collapsibleState, 'changeGroup', changes, 'group');
+    super(label, collapsibleState, 'changeGroup', changes, contextValue);
     this.description = countLabel(changes.length);
-    this.iconPath = new vscode.ThemeIcon('list-tree');
+    const hasConflicts = changes.some(change => change.conflicted);
+    this.iconPath = hasConflicts
+      ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('errorForeground'))
+      : new vscode.ThemeIcon('list-tree');
+    if (hasConflicts) {
+      this.label = {
+        label,
+        highlights: [[0, label.length]]
+      };
+      this.description = `CONFLICTS - ${countLabel(changes.length)}`;
+      this.tooltip = 'Merge conflicts need attention before committing.';
+      this.accessibilityInformation = {
+        label: `${label}, conflicts, ${countLabel(changes.length)}`
+      };
+    }
     this.checkboxState = checkboxState;
   }
 }
@@ -150,9 +165,19 @@ export class ChangeNode extends IdeaGitNode {
   constructor(readonly change: GitChange, readonly included: boolean, label = change.path, checkboxState?: ChangeCheckboxState) {
     super(label, vscode.TreeItemCollapsibleState.None, 'change', change, included ? 'change included' : 'change excluded');
     this.resourceUri = vscode.Uri.file(fromGitPath(change.repositoryRoot, change.path));
-    this.description = `${change.status}${included ? '' : ' - excluded'}`;
+    this.description = `${change.status === 'conflicted' ? 'CONFLICT' : change.status}${included ? '' : ' - excluded'}`;
     this.tooltip = `${change.indexStatus}${change.workingTreeStatus} ${change.path}`;
     this.iconPath = changeIcon(change, included);
+    if (change.conflicted) {
+      this.label = {
+        label,
+        highlights: [[0, label.length]]
+      };
+      this.tooltip = `Conflict: ${change.indexStatus}${change.workingTreeStatus} ${change.path}`;
+      this.accessibilityInformation = {
+        label: `${label}, conflict`
+      };
+    }
     this.checkboxState = checkboxState;
     this.command = {
       command: 'ideagit.showDiff',
@@ -247,7 +272,7 @@ export class ConflictNode extends IdeaGitNode {
     super(conflict.path, vscode.TreeItemCollapsibleState.None, 'conflict', conflict);
     this.description = conflict.operation.kind;
     this.resourceUri = vscode.Uri.file(fromGitPath(conflict.repositoryRoot, conflict.path));
-    this.iconPath = new vscode.ThemeIcon('warning');
+    this.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('errorForeground'));
     this.command = {
       command: 'ideagit.resolveConflicts',
       title: 'Resolve Conflict',
@@ -289,7 +314,7 @@ function changeIcon(change: GitChange, included: boolean): vscode.ThemeIcon {
       if (!included) {
         return new vscode.ThemeIcon('circle-slash', new vscode.ThemeColor('descriptionForeground'));
       }
-      return new vscode.ThemeIcon('warning', new vscode.ThemeColor('gitDecoration.conflictingResourceForeground'));
+      return new vscode.ThemeIcon('warning', new vscode.ThemeColor('errorForeground'));
     case 'modified':
       if (!included) {
         return new vscode.ThemeIcon('circle-slash', new vscode.ThemeColor('descriptionForeground'));
