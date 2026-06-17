@@ -641,8 +641,7 @@ export class CommandRegistry {
 
   private async stash(): Promise<void> {
     const repository = await this.deps.repositories.ensureSelected();
-    const message = await vscode.window.showInputBox({ title: 'Stash Changes', prompt: 'Message' });
-    await this.deps.stash.stash(repository.rootPath, message);
+    await this.deps.stash.stash(repository.rootPath);
     await this.deps.refreshAll();
   }
 
@@ -654,8 +653,11 @@ export class CommandRegistry {
       void vscode.window.showInformationMessage('No stashes found.');
       return;
     }
-    await this.deps.stash.pop(repository.rootPath, stash.selector);
-    await this.deps.refreshAll();
+    try {
+      await this.deps.stash.pop(repository.rootPath, stash.selector);
+    } finally {
+      await this.deps.refreshAll();
+    }
   }
 
   private async applyStash(value: unknown): Promise<void> {
@@ -664,8 +666,11 @@ export class CommandRegistry {
     if (!stash) {
       return;
     }
-    await this.deps.stash.apply(repository.rootPath, stash.selector);
-    await this.deps.refreshAll();
+    try {
+      await this.deps.stash.apply(repository.rootPath, stash.selector);
+    } finally {
+      await this.deps.refreshAll();
+    }
   }
 
   private async popStash(value: unknown): Promise<void> {
@@ -674,8 +679,11 @@ export class CommandRegistry {
     if (!stash) {
       return;
     }
-    await this.deps.stash.pop(repository.rootPath, stash.selector);
-    await this.deps.refreshAll();
+    try {
+      await this.deps.stash.pop(repository.rootPath, stash.selector);
+    } finally {
+      await this.deps.refreshAll();
+    }
   }
 
   private async dropStash(value: unknown): Promise<void> {
@@ -706,8 +714,15 @@ export class CommandRegistry {
     if (!conflict) {
       return;
     }
-    await this.deps.conflicts.markResolved(conflict);
-    await this.deps.refreshAll();
+    let continued = false;
+    try {
+      continued = await this.deps.conflicts.markResolved(conflict);
+    } finally {
+      await this.deps.refreshAll();
+    }
+    if (continued) {
+      void vscode.window.showInformationMessage('Rebase continued after resolving conflicts.');
+    }
   }
 
   private async abortOperation(): Promise<void> {

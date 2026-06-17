@@ -27,8 +27,27 @@ export class ConflictService {
     await vscode.commands.executeCommand('git.openChange');
   }
 
-  async markResolved(conflict: ConflictInfo, token?: vscode.CancellationToken): Promise<void> {
+  async markResolved(conflict: ConflictInfo, token?: vscode.CancellationToken): Promise<boolean> {
     await this.git.run(conflict.repositoryRoot, ['add', '--', conflict.path], { cancellationToken: token });
+    return this.continueRebaseIfReady(conflict.repositoryRoot, token);
+  }
+
+  private async continueRebaseIfReady(repositoryRoot: string, token?: vscode.CancellationToken): Promise<boolean> {
+    const operation = await this.repositories.detectOperation(repositoryRoot);
+    if (operation.kind !== 'rebase') {
+      return false;
+    }
+
+    const changes = await this.status.getChanges(repositoryRoot, false);
+    if (changes.some(change => change.conflicted)) {
+      return false;
+    }
+
+    await this.git.run(repositoryRoot, ['rebase', '--continue'], {
+      cancellationToken: token,
+      env: { GIT_EDITOR: 'true' }
+    });
+    return true;
   }
 
   async abort(repositoryRoot: string, operationKind: string, token?: vscode.CancellationToken): Promise<void> {

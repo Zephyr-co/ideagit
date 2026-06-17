@@ -2,7 +2,7 @@
   "name": "ideagit",
   "displayName": "ideagit",
   "description": "IntelliJ IDEA inspired Git workflow for VS Code: changelists, commit flow, push preview, branches, log, stash, and conflicts.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "ideagit",
   "icon": "resources/ideagit.png",
   "license": "UNLICENSED",
